@@ -21,6 +21,8 @@ TORCH_VERSION = "2.4.1"
 TORCHVISION_VERSION = "0.19.1"
 TORCHAUDIO_VERSION = "2.4.1"
 
+ENABLE_VULKAN = True
+
 # Environment
 script_dir = os.getcwd()
 conda_env_path = os.path.join(script_dir, "installer_files", "env")
@@ -254,6 +256,7 @@ def install_webui():
                 'C': 'AMD - Linux/macOS only, requires ROCm 6.1',
                 'D': 'Apple M Series',
                 'E': 'Intel Arc (beta)',
+                'F': 'Vulkan (beta)',
                 'N': 'CPU mode'
             },
         )
@@ -265,6 +268,7 @@ def install_webui():
         "C": "AMD",
         "D": "APPLE",
         "E": "INTEL",
+        "F": "VULKAN",
         "N": "NONE"
     }
 
@@ -285,8 +289,8 @@ def install_webui():
         else:
             print("CUDA: 12.1")
 
-    # No PyTorch for AMD on Windows (?)
-    elif is_windows() and selected_gpu == "AMD":
+    # No PyTorch for AMD and Vulkan on Windows (?)
+    elif is_windows() and (selected_gpu == "AMD" or selected_gpu == "VULKAN"):
         print("PyTorch setup on Windows is not implemented yet. Exiting...")
         sys.exit(1)
 
@@ -300,7 +304,8 @@ def install_webui():
             install_pytorch += "--index-url https://download.pytorch.org/whl/cu121"
     elif selected_gpu == "AMD":
         install_pytorch += "--index-url https://download.pytorch.org/whl/rocm6.1"
-    elif selected_gpu in ["APPLE", "NONE"]:
+    # No pre-built Pytorch wheels for Vulkan yet
+    elif selected_gpu in ["APPLE", "NONE", "VULKAN"]:
         install_pytorch += "--index-url https://download.pytorch.org/whl/cpu"
     elif selected_gpu == "INTEL":
         if is_linux():
@@ -351,7 +356,11 @@ def update_requirements(initial_installation=False, pull=True):
     if "+rocm" in torver:
         requirements_file = "requirements_amd" + ("_noavx2" if not cpu_has_avx2() else "") + ".txt"
     elif "+cpu" in torver or "+cxx11" in torver:
-        requirements_file = "requirements_cpu_only" + ("_noavx2" if not cpu_has_avx2() else "") + ".txt"
+        # We can't check Pytorch version because there are no prebuilt packages available
+        if ENABLE_VULKAN:
+            requirements_file = "requirements_vulkan" + ("_noavx2" if not cpu_has_avx2() else "") + ".txt"
+        else:
+            requirements_file = "requirements_cpu_only" + ("_noavx2" if not cpu_has_avx2() else "") + ".txt"
     elif is_macos():
         requirements_file = "requirements_apple_" + ("intel" if is_x86_64() else "silicon") + ".txt"
     else:
